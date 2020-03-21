@@ -85,7 +85,7 @@ void size_window(char filename[][NAMEMAX], int cnt, int* row, int* col){
 }
 
 void update_color(mode_t mode) {
-    bg_c = 0;
+    bg_c = 1;
     fg_c = 37;
     if (mode & (S_IXUSR | S_IXGRP | S_IXOTH)) fg_c = 32;
     if (mode & 0111) fg_c = 32;
@@ -113,7 +113,7 @@ void show_files(char filename[][NAMEMAX], int cnt, int row, int col) {
     for (int i = 0; i < row; i++) {
         for (int j = i; j < i + (row * col) && j < cnt; j = j + row) {
             int tmp = j / row;
-            stat(filename[j], &tmp_st);
+            lstat(filename[j], &tmp_st);
             update_color(tmp_st.st_mode);
             printf("\033[%d;%dm%-*s\033[0m", bg_c, fg_c, wide_file[tmp] + 1, filename[j]);
         }
@@ -177,12 +177,21 @@ void show_info(char *filename, struct stat *info) {
     printf("%8s ", gid_to_name(info->st_gid));
     printf("%8ld ", info->st_size);
     printf("%.15s ",  4 + ctime(&info->st_mtime));
-    printf("\033[%d;%dm%s\033[0m\n", bg_c, fg_c, filename);
+    printf("\033[%d;%dm%s\033[0m ", bg_c, fg_c, filename);
+    if(modestr[0] == 'l'){
+        int cnt;
+        char buf[NAMEMAX] = {0};
+        if((cnt = readlink(filename, buf, NAMEMAX)) < 0){
+            perror("readlink");
+        }else
+        printf("-> \033[%d;%dm%s\033[0m", bg_c, fg_c, buf);
+    }
+    printf("\n");
 }
 
 void do_stat(char *filename) {
     struct stat st;
-    if (stat(filename, &st) < 0) {
+    if (lstat(filename, &st) < 0) {
         perror(filename);
     } else {
         show_info(filename, &st);
@@ -204,7 +213,7 @@ void do_ls(char *dirname) {
             if (flag_l == 0) {
                 dir_num--;
                 struct stat tmp_st;
-                stat(dirname, &tmp_st);
+                lstat(dirname, &tmp_st);
                 update_color(tmp_st.st_mode);
                 printf("\033[%d;%dm%s\033[0m\n",bg_c, fg_c, dirname);
                 return;
